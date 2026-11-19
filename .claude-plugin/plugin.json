@@ -1,0 +1,12 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "og-images",
+  "version": "1.0.0",
+  "description": "Link previews, a Product Hunt gallery and an X header for your app, made from its real UI and checked on the rendered files: exact sizes, no alpha, contrast, safe zones, no font fallback.",
+  "author": { "name": "Otabek Abdiraimov", "url": "https://github.com/abdiraimov-otabek" },
+  "homepage": "https://github.com/abdiraimov-otabek/og-images",
+  "repository": "https://github.com/abdiraimov-otabek/og-images",
+  "license": "MIT",
+  "keywords": ["og-image", "open-graph", "link-preview", "product-hunt", "twitter-header", "x-header", "launch", "macos", "marketing", "skill"],
+  "skills": ["./skills/og-images"]
+}

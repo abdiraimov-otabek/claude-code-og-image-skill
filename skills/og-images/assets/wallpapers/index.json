@@ -1,0 +1,8 @@
+{
+  "_": "hue: the picture's signature colour in degrees. horizon: where the scenery starts, as a share of the picture's height from the top. The renderer zooms and shifts the picture so this line lands near horizonAt of the card, so the scenery is a strip along the bottom. These five cover blue, teal, green, warm and pink accents. Grey accents and accents more than 50 degrees from every picture get the brand field instead.",
+  "coast":       { "hue": 185, "mood": "turquoise bay, bright and fresh", "horizon": 0.46 },
+  "snow":        { "hue": 212, "mood": "blue sky over snow, crisp", "horizon": 0.62 },
+  "meadow-sky":  { "hue": 90,  "mood": "green hills under a blue sky, open", "horizon": 0.4 },
+  "dunes":       { "hue": 30,  "mood": "cream sand dunes, quiet and warm", "horizon": 0.65 },
+  "blossom":     { "hue": 340, "mood": "pink blossom branch, gentle; busy lower corners", "horizon": 0.68 }
+}

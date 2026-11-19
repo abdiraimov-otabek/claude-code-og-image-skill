@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>og card</title>
+<style>
+/* The viewport is the exact pixel size of the PNG, so everything is laid out in real pixels and the type stays sharp.
+   Positions come from setCard() in render.mjs's page; the CSS only paints. */
+:root {
+  --bg: #f5f5f7; --ink: #1d1d1f; --accent: #0071e3;
+  --font: -apple-system, BlinkMacSystemFont, system-ui, "SF Pro Display", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 100vw; height: 100vh; overflow: hidden; }
+body { position: relative; font-family: var(--font); color: var(--ink); background: var(--bg);
+  -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+/* The brand field: the background washed with a little of the accent from two corners. A tint, never a glow. */
+#bg { position: absolute; inset: 0; overflow: hidden;
+  background:
+    radial-gradient(110% 85% at 12% 0%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
+    radial-gradient(95% 80% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 58%),
+    linear-gradient(var(--bg) 50%, color-mix(in srgb, var(--bg), var(--ink) 4%)); }
+#wall { position: absolute; inset: 0; background-repeat: no-repeat; display: none; }
+.wall #wall { display: block; }
+
+#lock { position: absolute; display: flex; align-items: center; z-index: 2; white-space: nowrap; }
+#icon { display: block; border-radius: 22.4%; flex: none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.18), 0 8px 18px rgba(0,0,0,.16); }
+#name { font-weight: 650; letter-spacing: -0.015em; }
+#copy { position: absolute; z-index: 2; }
+#title { font-weight: 700; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
+#title b { font-weight: 700; }
+#sub { font-weight: 500; letter-spacing: -0.008em; line-height: 1.3; opacity: .8; text-wrap: balance; margin-top: 14px; }
+#sub:empty { display: none; }
+.measuring #title, .measuring #sub, .measuring #name { visibility: hidden; }
+
+.cap { position: absolute; display: none; z-index: 1; }
+.cap.on { display: block; }
+.crop { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.cap img { position: absolute; display: block; max-width: none; }
+.cap.shadow { filter: drop-shadow(0 1px 2px rgba(0,0,0,.22)) drop-shadow(0 20px 38px rgba(0,0,0,.24)); }
+</style>
+</head>
+<body>
+<div id="bg"><div id="wall"></div></div>
+<div id="lock"><img id="icon" alt=""><span id="name"></span></div>
+<div id="copy"><h1 id="title"></h1><p id="sub"></p></div>
+<div class="cap" id="cap0"><div class="crop"><img alt=""></div></div>
+<div class="cap" id="cap1"><div class="crop"><img alt=""></div></div>
+<div class="cap" id="cap2"><div class="crop"><img alt=""></div></div>
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, props) => Object.assign(document.createElement(tag), props);
+const pics = {}, walls = {};
+
+// A capture, decoded: its opaque box (transparent margins and baked shadows are never shown) and its content box
+// (the pixels that differ from the capture's own background, so a blank area is not counted as UI).
+// clean: a SwiftUI ImageRenderer capture has opaque yellow placeholders in its corner flares and a faint baked shadow;
+// everything yellow or see-through that touches the image border is cleared.
+const load = async (url, clean, square) => {
+  const key = url + (clean ? '#clean' : '') + (square ? '#square' : '');
+  if (pics[key]) return pics[key];
+  const img = Object.assign(new Image(), { src: url });
+  try { await img.decode(); } catch { throw new Error('capture is not an image: ' + url); }
+  const cv = el('canvas', { width: img.naturalWidth, height: img.naturalHeight }), cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  const id = cx.getImageData(0, 0, cv.width, cv.height), { data, width: w, height: h } = id;
+  if (clean) {
+    const junk = i => data[i + 3] <= 128 || (data[i] > 150 && data[i + 1] > 110 && data[i + 2] < 90 && data[i] - data[i + 2] > 90);
+    const seen = new Uint8Array(w * h), stack = [];
+    const push = (x, y) => { const k = y * w + x; if (!seen[k] && junk(k * 4)) { seen[k] = 1; stack.push(k); } };
+    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+    while (stack.length) {
+      const k = stack.pop(), x = k % w, y = (k - x) / w;
+      data[k * 4 + 3] = 0;
+      if (x > 0) push(x - 1, y); if (x < w - 1) push(x + 1, y); if (y > 0) push(x, y - 1); if (y < h - 1) push(x, y + 1);
+    }
+    if (square) {   // square off the island's corner flares: everything outside the body's own left and right edge goes
+      const L = [], R = [];
+      for (let y = Math.floor(h * 0.3); y < h * 0.7; y++) {
+        let a = -1, b = -1;
+        for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 128) { if (a < 0) a = x; b = x; }
+        if (a >= 0) { L.push(a); R.push(b); }
+      }
+      if (L.length) {
+        const mid = v => v.sort((p, q) => p - q)[v.length >> 1], bl = mid(L), br = mid(R);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < bl || x > br) data[(y * w + x) * 4 + 3] = 0;
+      }
+    }
+    cx.putImageData(id, 0, 0);
+  }
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 128) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) throw new Error('capture is fully transparent: ' + url);
+  const box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  // Content box: the modal colour just inside the opaque box is "background"; content is whatever differs from it.
+  const bins = new Map();
+  const edge = (x, y) => { const i = (y * w + x) * 4; if (data[i + 3] < 250) return; const k = (data[i] >> 4) << 8 | (data[i + 1] >> 4) << 4 | data[i + 2] >> 4; bins.set(k, (bins.get(k) || 0) + 1); };
+  for (let x = x0 + 6; x <= x1 - 6; x += 3) { edge(x, y0 + 6); edge(x, y1 - 6); }
+  for (let y = y0 + 6; y <= y1 - 6; y += 3) { edge(x0 + 6, y); edge(x1 - 6, y); }
+  const top = [...bins].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0, bgc = [(top >> 8) * 16 + 8, ((top >> 4) & 15) * 16 + 8, (top & 15) * 16 + 8];
+  let cx0 = w, cy0 = h, cx1 = -1, cy1 = -1;
+  const rows = new Uint32Array(h), cols = new Uint32Array(w);
+  for (let y = y0; y <= y1; y += 2) for (let x = x0; x <= x1; x += 2) {
+    const i = (y * w + x) * 4;
+    if (data[i + 3] > 128 && Math.abs(data[i] - bgc[0]) + Math.abs(data[i + 1] - bgc[1]) + Math.abs(data[i + 2] - bgc[2]) > 48) { rows[y]++; cols[x]++; }
+  }
+  for (let y = y0; y <= y1; y++) if (rows[y] > 1) { if (y < cy0) cy0 = y; cy1 = y; }
+  for (let x = x0; x <= x1; x++) if (cols[x] > 1) { if (x < cx0) cx0 = x; cx1 = x; }
+  const content = cx1 < 0 ? box : { x: cx0, y: cy0, w: cx1 - cx0 + 1, h: cy1 - cy0 + 1 };
+  let shown = img;
+  if (clean) { shown = Object.assign(new Image(), { src: URL.createObjectURL(await new Promise(r => cv.toBlob(r, 'image/png'))) }); await shown.decode(); }
+  return pics[key] = { img: shown, box, content, corner: data[3] < 250 };
+};
+
+const SIZE = {   // type sizes in px per card kind; the cap-height floors are enforced by render.mjs
+  link: { title: 76, name: 30, sub: 28, lines: { side: 4, below: 2 } },
+  ph:   { title: 58, name: 26, sub: 26, lines: { side: 2, below: 2 } },
+  x:    { title: 54, name: 26, sub: 24, lines: { side: 2, below: 2 } },
+};
+// X header safe zones (references/sizes.md): the top and bottom 60 px may be cropped, and the profile photo covers the lower left
+// (measured on x.com: desktop x 35 to 401, y 311 to 500; phone x 54 to 414, y 332 to 500). The text column starts at 440.
+const X_SAFE = { x0: 40, x1: 1460, y0: 70, y1: 430 }, X_AVATAR = { x0: 0, x1: 420, y0: 300, y1: 500 }, X_TEXT = 440, X_PIC = 900;
+
+window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
+  const root = document.documentElement, body = document.body;
+  const W = innerWidth, H = innerHeight, S = SIZE[kind];
+  const { colors = {}, fonts = {} } = brand;
+  for (const k of ['bg', 'ink', 'accent']) if (colors[k]) root.style.setProperty('--' + k, colors[k]);
+  if (fonts.google && !$('gf')) {
+    document.head.insertAdjacentHTML('beforeend', `<link id="gf" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${fonts.google}&display=block">`);
+    await new Promise(r => { $('gf').onload = $('gf').onerror = r; });
+  }
+  if (fonts.fileUrl && !window.brandFont) {
+    window.brandFont = await new FontFace('BrandFont', `url("${fonts.fileUrl}")`, { weight: '100 900' }).load();
+    document.fonts.add(window.brandFont);
+  }
+  // The brand's stack in its own order, then the system stacks. A bare "sans-serif" goes last so it cannot win early.
+  if (fonts.family) {
+    const own = fonts.family.split(',').map(f => f.trim()).filter(f => f && !/^sans-serif$/i.test(f));
+    if (fonts.fileUrl) own.unshift('BrandFont');
+    root.style.setProperty('--font', [...own, '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'].join(', '));
+  }
+
+  // Wallpaper, scaled to cover, zoomed and shifted so its horizon lands near horizonAt: the scenery is a strip along the bottom.
+  const wall = { zoom: null, horizon: null, scale: null };
+  body.classList.toggle('wall', !!wallpaper);
+  if (wallpaper) {
+    const pic = walls[wallpaper.url] ||= Object.assign(new Image(), { src: wallpaper.url }); await pic.decode();
+    const cover = Math.max(W / pic.naturalWidth, H / pic.naturalHeight), fit = pic.naturalHeight * cover / H;
+    const hz = wallpaper.horizon ?? 0.55, T = wallpaper.horizonAt ?? 0.8, band = 0.03, zMax = wallpaper.zoomMax ?? 1.7;
+    let z = wallpaper.zoom, y = wallpaper.y;
+    if (z == null) {
+      for (z = 1; z < zMax; z += 0.02) { const g = fit * z; if (hz * g >= T - band && hz * g - g + 1 <= T + band) break; }
+      z = Math.min(z, zMax);
+    }
+    const g = fit * z, lo = hz * g - g + 1, hi = hz * g, got = Math.min(hi, Math.max(lo, T));
+    if (y == null) y = g > 1 ? (hz * g - got) / (g - 1) : 0.5;
+    const w = pic.naturalWidth * cover * z, h = pic.naturalHeight * cover * z;
+    Object.assign($('wall').style, { backgroundImage: `url("${wallpaper.url}")`, backgroundSize: `${w}px ${h}px`, backgroundPosition: `${-(w - W) / 2}px ${-(h - H) * y}px` });
+    wall.zoom = +z.toFixed(2); wall.horizon = +(hz * g - (g - 1) * y).toFixed(2); wall.scale = +(cover * z).toFixed(2);
+  }
+
+  // Captures: trimmed to their opaque pixels, then cropped by { x, y, w, h } in 0..1 of that.
+  const crops = card.crops || [card.crop];
+  const items = [];
+  for (let i = 0; i < 3; i++) {
+    const cap = $('cap' + i), url = card.captureUrls[i];
+    cap.classList.toggle('on', !!url);
+    if (!url) continue;
+    const p = await load(url, card.clean, card.square), c = { x: 0, y: 0, w: 1, h: 1, ...(crops[i] || {}) };
+    const sx = p.box.x + c.x * p.box.w, sy = p.box.y + c.y * p.box.h, sw = c.w * p.box.w, sh = c.h * p.box.h;
+    // the part of the content box that is inside the crop: what counts as UI
+    const ix0 = Math.max(sx, p.content.x), iy0 = Math.max(sy, p.content.y), ix1 = Math.min(sx + sw, p.content.x + p.content.w), iy1 = Math.min(sy + sh, p.content.y + p.content.h);
+    items.push({ cap, p, sx, sy, sw, sh, aspect: sw / sh, inner: { l: (ix0 - sx) / sw, t: (iy0 - sy) / sh, r: (ix1 - sx) / sw, b: (iy1 - sy) / sh } });
+  }
+  // No layout named: a link card picks by shape; a slide shows one plain window capture (rounded transparent corners, not an island) bleeding off the bottom edge, anything else whole.
+  const layout = card.layout === 'stack' ? 'pair' : card.layout === 'auto' ? (items[0].aspect > 2 ? 'below' : 'side')
+    : card.layout || (items.length === 1 && !card.clean && items[0].p.corner ? 'bleed' : 'fit');
+  const side = layout === 'side';
+
+  // Brand lockup (icon + name) and the copy.
+  const lockH = kind === 'ph' ? 42 : kind === 'x' ? 56 : 72, nameSize = S.name;
+  if (card.iconUrl) { $('icon').src = card.iconUrl; await $('icon').decode(); } else $('icon').removeAttribute('src');
+  $('icon').style.display = card.iconUrl ? 'block' : 'none';
+  Object.assign($('icon').style, { width: lockH + 'px', height: lockH + 'px' });
+  $('name').textContent = card.name || '';
+  Object.assign($('name').style, { fontSize: nameSize + 'px', marginLeft: card.iconUrl ? lockH * 0.26 + 'px' : 0 });
+  const parts = card.title.split('**');
+  $('title').replaceChildren(...parts.map((t, i) => i % 2 ? el('b', { textContent: t }) : t));
+  $('sub').textContent = card.subline || '';
+  await document.fonts.ready;
+
+  const copy = $('copy'), lock = $('lock');
+  const textBox = e => { if (!e.textContent) return null; const r = document.createRange(); r.selectNodeContents(e); const b = r.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+  const capOf = size => { const cx = el('canvas').getContext('2d'); cx.font = `700 ${size}px ${getComputedStyle($('title')).fontFamily}`; return cx.measureText('H').actualBoundingBoxAscent; };
+  const M = kind === 'link' ? 72 : kind === 'ph' ? 64 : 0;
+  // Title column: side layouts keep to the left column, the others span the card.
+  let colX, colW, align;
+  if (kind === 'x') { colX = X_TEXT; colW = 430; align = 'left'; }
+  else if (side) { colX = M; colW = 490; align = 'left'; }
+  else { colX = M + 40; colW = W - 2 * (M + 40); align = 'center'; }
+  Object.assign(copy.style, { left: colX + 'px', width: colW + 'px', textAlign: align });
+  $('sub').style.fontSize = S.sub + 'px';
+  // Fit the title. A link card takes the largest size up to S.title that fits the allowed lines, and never goes below
+  // the size whose cap height is card.minCap. The other kinds keep one fixed size and only fail.
+  const maxLines = S.lines[side ? 'side' : 'below'], minSize = Math.ceil(card.minCap / (capOf(100) / 100));
+  const measureTitle = () => { const t = $('title'); const l = Math.round(t.getBoundingClientRect().height / (parseFloat(t.style.fontSize) * 1.06)); return { l, ok: l <= maxLines && t.scrollWidth <= t.clientWidth + 1 }; };
+  let size = S.title, lines, fits;
+  if (kind === 'link') {
+    for (; size >= minSize; size -= 2) { $('title').style.fontSize = size + 'px'; ({ l: lines, ok: fits } = measureTitle()); if (fits) break; }
+    if (!fits) { size = minSize; $('title').style.fontSize = size + 'px'; ({ l: lines, ok: fits } = measureTitle()); }
+  } else { $('title').style.fontSize = size + 'px'; ({ l: lines, ok: fits } = measureTitle()); }
+
+  const kb = () => copy.getBoundingClientRect();
+  const lockW = () => lock.getBoundingClientRect().width;
+  // Positions.
+  if (kind === 'x') {
+    // lockup, then headline, then subline, as one block centred between the safe top and bottom
+    const lh = lockH + 22;
+    copy.style.top = '0px'; const ch = kb().height, total = lh + ch;
+    const top = (X_SAFE.y0 + X_SAFE.y1) / 2 - total / 2;
+    Object.assign(lock.style, { left: colX + 'px', top: top + 'px' }); copy.style.top = top + lh + 'px';
+  } else if (kind === 'ph') {
+    Object.assign(lock.style, { left: (W - lockW()) / 2 + 'px', top: '34px' }); copy.style.top = '96px';
+  } else if (side) {
+    Object.assign(lock.style, { left: M + 'px', top: M + 'px' }); copy.style.top = M + lockH + 52 + 'px';
+  } else {
+    Object.assign(lock.style, { left: (W - lockW()) / 2 + 'px', top: '52px' }); copy.style.top = 52 + lockH + 22 + 'px';
+  }
+
+  // The captures.
+  const paint = (it, x, y, w, h) => {
+    const { cap, p } = it, img = cap.querySelector('img');
+    const r = card.radius ?? (p.corner ? 0 : 12);
+    Object.assign(cap.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', borderRadius: r + 'px' });
+    cap.classList.toggle('shadow', card.shadow !== false);
+    img.src = p.img.src;
+    const k = w / it.sw;
+    Object.assign(img.style, { width: p.img.naturalWidth * k + 'px', height: p.img.naturalHeight * k + 'px', left: -it.sx * k + 'px', top: -it.sy * k + 'px' });
+    Object.assign(it, { x, y, w, h, upscale: k });
+  };
+  const gap = kind === 'ph' ? 28 : 20;
+  const cb = kb(), areaTop = cb.bottom + (kind === 'ph' ? 30 : 32);
+  if (kind === 'x') {
+    const it = items[0], maxW = X_SAFE.x1 - X_PIC, maxH = X_SAFE.y1 - X_SAFE.y0;
+    let w = Math.min(card.width ? card.width * W : maxW, maxW), h = w / it.aspect;
+    if (h > maxH) { h = maxH; w = h * it.aspect; }
+    paint(it, X_PIC + (maxW - w) / 2, (X_SAFE.y0 + X_SAFE.y1) / 2 - h / 2, w, h);
+  } else if (side) {
+    const it = items[0], x = 590, w = (card.width ? card.width * W : W - x + 80), h = w / it.aspect;
+    paint(it, x, h > H * 0.75 ? H - h * 0.86 : (H - h) / 2 + 20, w, h);
+  } else {
+    const bleed = layout === 'bleed', bottom = bleed ? Infinity : H - (kind === 'ph' ? 40 : 40);
+    const room = bottom - areaTop - (items.length - 1) * gap;
+    const want = card.width ?? (bleed ? 0.84 : layout === 'pair' ? 0.7 : 0.84), wantW = want * W;
+    let used = 0;
+    for (const it of items) {
+      let w = wantW, h = w / it.aspect;
+      if (!bleed) { const hh = room / items.length; if (h > hh) { h = hh; w = h * it.aspect; } }
+      it.w = w; it.h = h; used += h;
+    }
+    let y = bleed ? areaTop : areaTop + (room - used) / 2;
+    for (const it of items) { paint(it, (W - it.w) / 2, y, it.w, it.h); y += it.h + gap; }
+  }
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // Facts for the guard.
+  const rectOf = it => ({ l: it.x, t: it.y, r: it.x + it.w, b: it.y + it.h });
+  const visible = q => ({ l: Math.max(q.l, 0), t: Math.max(q.t, 0), r: Math.min(q.r, W), b: Math.min(q.b, H) });
+  const area = q => Math.max(0, q.r - q.l) * Math.max(0, q.b - q.t);
+  // UI coverage: the content part of each capture (not blank background) that is on the canvas.
+  const uiRects = items.map(it => visible({ l: it.x + it.inner.l * it.w, t: it.y + it.inner.t * it.h, r: it.x + it.inner.r * it.w, b: it.y + it.inner.b * it.h }));
+  const coverage = uiRects.reduce((n, q) => n + area(q), 0) / (W * H);
+  const tb = textBox($('title')), sb = textBox($('sub')), nb = textBox($('name')), lr = lock.getBoundingClientRect();
+  const important = [['title', tb], ['subtitle', sb], ['name', nb], ['icon', card.iconUrl ? $('icon').getBoundingClientRect() : null],
+    ...items.map((it, i) => ['capture ' + (i + 1), { x: it.x, y: it.y, width: it.w, height: it.h }])]
+    .filter(([, b]) => b).map(([n, b]) => ({ n, l: b.x, t: b.y, r: b.x + b.width, b: b.y + b.height }));
+  const safe = [];
+  if (kind === 'x') for (const q of important) {
+    if (q.l < X_SAFE.x0 || q.r > X_SAFE.x1 || q.t < X_SAFE.y0 || q.b > X_SAFE.y1) safe.push(`${q.n} leaves the safe area (x ${X_SAFE.x0} to ${X_SAFE.x1}, y ${X_SAFE.y0} to ${X_SAFE.y1})`);
+    if (q.l < X_AVATAR.x1 && q.r > X_AVATAR.x0 && q.t < X_AVATAR.y1 && q.b > X_AVATAR.y0) safe.push(`${q.n} is in the avatar zone (x under ${X_AVATAR.x1}, y over ${X_AVATAR.y0}: the profile photo)`);
+  }
+  const offCanvas = important.filter(q => q.n === 'title' || q.n === 'subtitle' || q.n === 'name' || q.n === 'icon').filter(q => q.l < 0 || q.r > W || q.t < 0 || q.b > H).map(q => q.n);
+  return {
+    titleSize: size, lines, fits, maxLines, capHeight: capOf(size), titleBox: tb, subBox: sb, nameBox: nb,
+    captureVisible: items.length ? Math.min(...items.map(it => area(visible(rectOf(it))) / (it.w * it.h))) : 1,
+    upscale: items.length ? Math.max(...items.map(it => it.upscale)) : 0,
+    coverage, wall, safe, offCanvas,
+    span: items.length ? Math.max(...items.map(it => Math.min(it.x + it.w, W) - Math.max(it.x, 0))) / W : 0,
+  };
+};
+
+// Contrast of one text element against the real pixels behind it. render.mjs hides the text, photographs its box and
+// passes the picture in. Returns the contrast that 90% of the box beats.
+window.contrastUnder = async (dataUrl, id) => {
+  const pic = new Image(); pic.src = dataUrl; await pic.decode();
+  const cv = el('canvas', { width: pic.width, height: pic.height }), cx = cv.getContext('2d');
+  cx.drawImage(pic, 0, 0);
+  const px = cx.getImageData(0, 0, cv.width, cv.height).data;
+  const cs = getComputedStyle($(id)), ink = cs.color.match(/[\d.]+/g).map(Number), a = parseFloat(cs.opacity);
+  const lum = rgb => rgb.map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const out = [];
+  for (let i = 0; i < px.length; i += 4 * 7) {   // every 7th pixel is plenty
+    const bg = [px[i], px[i + 1], px[i + 2]], fg = ink.slice(0, 3).map((v, k) => v * a + bg[k] * (1 - a));
+    const [hi, lo] = [lum(bg), lum(fg)].sort((x, y) => y - x);
+    out.push((hi + 0.05) / (lo + 0.05));
+  }
+  return out.sort((x, y) => x - y)[Math.floor(out.length * 0.1)];
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "og-images",
+  "owner": { "name": "Otabek Abdiraimov", "url": "https://github.com/abdiraimov-otabek" },
+  "metadata": { "description": "Link previews, a Product Hunt gallery and an X header from your app's real UI." },
+  "plugins": [ { "name": "og-images", "source": "./", "description": "Link previews, a Product Hunt gallery and an X header from your app's real UI, checked on the files.", "version": "1.0.0" } ]
+}
