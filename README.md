@@ -6,7 +6,7 @@
 A free Claude Code skill that makes your app's launch images from its real UI: the link preview, a Product Hunt
 gallery and an X header. Then it checks every file before it hands them to you.
 
-[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757?style=flat-square)](#install) [![License: MIT](https://img.shields.io/badge/license-MIT-2ea043?style=flat-square)](LICENSE) [![macOS](https://img.shields.io/badge/runs_on-macOS-2f2f2f?style=flat-square)](#requirements) [![GitHub stars](https://img.shields.io/github/stars/abdiraimov-otabek/og-images?style=flat-square&color=e3b341)](https://github.com/abdiraimov-otabek/og-images/stargazers)
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757?style=flat-square)](#install) [![License: MIT](https://img.shields.io/badge/license-MIT-2ea043?style=flat-square)](LICENSE) [![macOS](https://img.shields.io/badge/runs_on-macOS-2f2f2f?style=flat-square)](#requirements) [![GitHub stars](https://img.shields.io/github/stars/abdiraimov-otabek/claude-code-og-image-skill?style=flat-square&color=e3b341)](https://github.com/abdiraimov-otabek/claude-code-og-image-skill/stargazers)
 
 [Install](#install) · [What it makes](#what-it-makes) · [Before and after](#before-and-after) · [How it works](#how-it-works) · [FAQ](#faq)
 
@@ -25,10 +25,10 @@ in your colours and your site's own words, at every size each platform asks for.
 In Claude Code (2.1.275 or later):
 
 ```
-/plugin install og-images --marketplace abdiraimov-otabek/og-images
+/plugin install og-images --marketplace abdiraimov-otabek/claude-code-og-image-skill
 ```
 
-On an older Claude Code: `/plugin marketplace add abdiraimov-otabek/og-images`, then
+On an older Claude Code: `/plugin marketplace add abdiraimov-otabek/claude-code-og-image-skill`, then
 `/plugin install og-images@og-images`.
 
 Then open your app's repo and ask:
@@ -43,8 +43,8 @@ On first use the skill installs Playwright 1.59.1 into its own folder, never you
 <summary>Install without the plugin system</summary>
 
 ```bash
-git clone https://github.com/abdiraimov-otabek/og-images
-ln -s "$PWD/og-images/skills/og-images" ~/.claude/skills/og-images
+git clone https://github.com/abdiraimov-otabek/claude-code-og-image-skill
+ln -s "$PWD/claude-code-og-image-skill/skills/og-images" ~/.claude/skills/og-images
 ```
 
 Then run `/reload-skills` in Claude Code.
