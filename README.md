@@ -137,8 +137,9 @@ skills/og-images/
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). The five wallpapers are made for this skill: free to use in your own launch graphics, not
-to be resold or redistributed as a pack.
+MIT, see [LICENSE](LICENSE). The five wallpapers have their own terms in
+[skills/og-images/assets/wallpapers/LICENSE-wallpapers.md](skills/og-images/assets/wallpapers/LICENSE-wallpapers.md):
+free to use in your own launch graphics, not to be resold or redistributed as a pack.
 
 ## From the author
 
