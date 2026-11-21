@@ -292,4 +292,8 @@ ${tags(links[0], `${site}/og/og.png`)}
 
 console.log(`\n${done.length} PNG${done.length === 1 ? '' : 's'} in ${outDir}`);
 if (problems.length) { console.log(`${problems.length} check${problems.length === 1 ? '' : 's'} failed. Fix the config and render again.`); process.exit(1); }
-console.log('Checks passed. Now run sips on every file and open every PNG, full size and small.');
+{ // the look, made cheap: the feed-size contact sheets are rendered now, so opening two files shows every card small
+  const { spawnSync } = await import('node:child_process');
+  spawnSync(process.execPath, [join(skillDir, 'scripts', 'preview.mjs'), outDir], { stdio: 'ignore' });
+}
+console.log(`Checks passed. The look is not done: open ${join(outDir, '_preview-600.png')} and _preview-300.png now (every image at feed size), then each PNG at full size, then delete the two previews. In your report, name the files you opened; any you did not open, list first under \"not looked at\". The guard checks numbers, not taste: only looking catches a cut word, a muddy capture or a dull card.`);
