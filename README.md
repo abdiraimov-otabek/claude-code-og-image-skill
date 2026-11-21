@@ -148,4 +148,5 @@ cards above are their real launch images. I also made the free
 [dashboard-design](https://github.com/abdiraimov-otabek/dashboard-design-skill) skill.
 
 og-images is one skill from **[Gold Master Kit](https://goldmasterkit.com)**, a paid pack for Mac and iOS launches. It
-adds App Store screenshots at Apple's exact sizes today, with launch copy, a landing page and a promo video in progress.
+adds App Store screenshots at Apple's exact sizes, launch posts, a launch film and a one-page website, each checked on
+the files.
