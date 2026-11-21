@@ -45,7 +45,8 @@ let brand;
 try { brand = brandPath ? JSON.parse(readFileSync(brandPath, 'utf8')) : (config.brand || {}); } catch (e) { die(`cannot read ${brandPath}: ${e.message}`); }
 if (!brand.appName) die('the brand needs "appName"');
 const repoRoot = brandPath ? join(dirname(brandPath), '..') : base;
-if (!brand.iconPath) die('the brand needs "iconPath": the app icon, relative to the repo root (the folder above launch-assets)');
+brand.iconPath ||= brand.icon; // store-screenshots and launch-video write "icon"
+if (!brand.iconPath) die('the brand needs "iconPath" (or "icon"): the app icon, relative to the repo root (the folder above launch-assets)');
 const iconFile = resolve(repoRoot, brand.iconPath);
 if (!existsSync(iconFile)) die(`app icon not found: ${iconFile}`);
 if (!brand.colors?.accent) console.log('note: the brand has no colors.accent. The field is neutral grey and no wallpaper is picked.');
@@ -117,11 +118,15 @@ const checkCrop = (c, where) => { if (!c) return; for (const k of ['x', 'y']) nu
 const text = (v, where) => { if (typeof v !== 'string' || !v.trim()) die(`${where} must be a non-empty string`); return v.trim(); };
 const mk = (kind, id, where, o, extra = {}) => {
   const c = { kind, id, where, title: text(o.title ?? o.headline, `${where} title`), subline: o.subline == null ? '' : text(o.subline, `${where} subline`),
-    captures: caps(o, where), crop: o.crop, crops: o.crops, clean: o.clean, square: o.square, radius: o.radius, width: o.width, shadow: o.shadow, layout: o.layout, alt: o.alt, minCoverage: o.minCoverage, ...extra };
+    captures: caps(o, where), crop: o.crop, crops: o.crops, clean: o.clean, square: o.square, radius: o.radius, width: o.width, shadow: o.shadow, layout: o.layout, zoom: o.zoom, alt: o.alt, minCoverage: o.minCoverage, ...extra };
   if (o.crop && o.crops) die(`${where}: set "crop" or "crops", not both`);
   checkCrop(c.crop, where); (c.crops || []).forEach(k => checkCrop(k, where));
   if (c.width != null) num(c.width, `${where} width`, 0.05, 2);
-  if (c.layout && !['side', 'below', 'bleed', 'fit', 'pair', 'stack'].includes(c.layout)) die(`${where}: layout "${c.layout}" is not one of side, below (link and x), bleed, fit, pair (slides)`);
+  if (c.layout && !['side', 'below', 'poster', 'detail', 'window', 'bleed', 'fit', 'pair', 'stack'].includes(c.layout)) die(`${where}: layout "${c.layout}" is not one of poster, detail, window, side, below (link and x), bleed, fit, pair (slides)`);
+  if (c.layout === 'detail') {   // the zoom card is the same capture again, cropped to "zoom"
+    if (!c.zoom) die(`${where}: layout "detail" needs "zoom": { x, y, w, h } (0 to 1 of the capture), the part the title talks about`);
+    c.captures = [c.captures[0], c.captures[0]]; c.crops = [c.crop || null, c.zoom];
+  }
   cards.push(c); return c;
 };
 if (config.link) {

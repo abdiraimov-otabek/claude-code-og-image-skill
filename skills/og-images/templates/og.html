@@ -20,6 +20,8 @@ body { position: relative; font-family: var(--font); color: var(--ink); backgrou
     radial-gradient(110% 85% at 12% 0%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
     radial-gradient(95% 80% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 58%),
     linear-gradient(var(--bg) 50%, color-mix(in srgb, var(--bg), var(--ink) 4%)); }
+/* The tint wash (poster, detail, window): the page colour with the brand's tint, deepening a little toward the bottom. Flat, no glow. */
+.wash #bg { background: linear-gradient(180deg, color-mix(in srgb, var(--bg), var(--tint) 7%), color-mix(in srgb, color-mix(in srgb, var(--bg), var(--tint) 14%), var(--ink) 5%)); }
 #wall { position: absolute; inset: 0; background-repeat: no-repeat; display: none; }
 .wall #wall { display: block; }
 
@@ -30,6 +32,11 @@ body { position: relative; font-family: var(--font); color: var(--ink); backgrou
 #copy { position: absolute; z-index: 2; }
 #title { font-weight: 700; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
 #title b { font-weight: 700; }
+.two #title { color: color-mix(in srgb, var(--ink) 50%, var(--bg)); }
+.two #title b { color: var(--ink); }
+#pill { position: absolute; display: none; z-index: 1; background: #fff; border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.06), 0 14px 34px -14px rgba(0,0,0,.28); }
+.pill #pill { display: block; }
 #sub { font-weight: 500; letter-spacing: -0.008em; line-height: 1.3; opacity: .8; text-wrap: balance; margin-top: 14px; }
 #sub:empty { display: none; }
 .measuring #title, .measuring #sub, .measuring #name { visibility: hidden; }
@@ -43,6 +50,7 @@ body { position: relative; font-family: var(--font); color: var(--ink); backgrou
 </head>
 <body>
 <div id="bg"><div id="wall"></div></div>
+<div id="pill"></div>
 <div id="lock"><img id="icon" alt=""><span id="name"></span></div>
 <div id="copy"><h1 id="title"></h1><p id="sub"></p></div>
 <div class="cap" id="cap0"><div class="crop"><img alt=""></div></div>
@@ -115,7 +123,7 @@ const load = async (url, clean, square) => {
 };
 
 const SIZE = {   // type sizes in px per card kind; the cap-height floors are enforced by render.mjs
-  link: { title: 76, name: 30, sub: 28, lines: { side: 4, below: 2 } },
+  link: { title: 76, name: 30, sub: 28, lines: { side: 4, below: 2, detail: 2, window: 1, poster: 1 } },
   ph:   { title: 58, name: 26, sub: 26, lines: { side: 2, below: 2 } },
   x:    { title: 54, name: 26, sub: 24, lines: { side: 2, below: 2 } },
 };
@@ -142,6 +150,18 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
     if (fonts.fileUrl) own.unshift('BrandFont');
     root.style.setProperty('--font', [...own, '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'].join(', '));
   }
+
+  // The tint for the wash: the accent, or the icon's own colour when the accent is grey or near-black.
+  const hueful = c => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return false; const n = parseInt(m[1], 16), r = n >> 16, g = n >> 8 & 255, b = n & 255; return Math.max(r, g, b) - Math.min(r, g, b) > 40; };
+  let tint = colors.accent;
+  if (!hueful(tint) && card.iconUrl) {
+    const ic = new Image(); ic.src = card.iconUrl; await ic.decode();
+    const cv = el('canvas', { width: 32, height: 32 }), cx = cv.getContext('2d'); cx.drawImage(ic, 0, 0, 32, 32);
+    const d = cx.getImageData(0, 0, 32, 32).data; let best = null, bs = 0;
+    for (let i = 0; i < d.length; i += 4) { const [r, g, b, a] = [d[i], d[i + 1], d[i + 2], d[i + 3]]; const sat = Math.max(r, g, b) - Math.min(r, g, b); if (a > 200 && sat > bs) { bs = sat; best = [r, g, b]; } }
+    if (best && bs > 40) tint = '#' + best.map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+  root.style.setProperty('--tint', hueful(tint) ? tint : '#8a8f98');
 
   // Wallpaper, scaled to cover, zoomed and shifted so its horizon lands near horizonAt: the scenery is a strip along the bottom.
   const wall = { zoom: null, horizon: null, scale: null };
@@ -176,9 +196,12 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
     items.push({ cap, p, sx, sy, sw, sh, aspect: sw / sh, inner: { l: (ix0 - sx) / sw, t: (iy0 - sy) / sh, r: (ix1 - sx) / sw, b: (iy1 - sy) / sh } });
   }
   // No layout named: a link card picks by shape; a slide shows one plain window capture (rounded transparent corners, not an island) bleeding off the bottom edge, anything else whole.
-  const layout = card.layout === 'stack' ? 'pair' : card.layout === 'auto' ? (items[0].aspect > 2 ? 'below' : 'side')
+  const layout = card.layout === 'stack' ? 'pair' : card.layout === 'auto' ? (items[0].aspect > 2 ? 'below' : 'poster')
     : card.layout || (items.length === 1 && !card.clean && items[0].p.corner ? 'bleed' : 'fit');
-  const side = layout === 'side';
+  const side = layout === 'side', detail = layout === 'detail', poster = layout === 'poster', win = layout === 'window';
+  body.classList.toggle('wash', (poster || detail || win) && !wallpaper);
+  body.classList.toggle('pill', win);
+  body.classList.toggle('two', card.title.includes('**'));
 
   // Brand lockup (icon + name) and the copy.
   const lockH = kind === 'ph' ? 42 : kind === 'x' ? 56 : 72, nameSize = S.name;
@@ -186,6 +209,8 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
   $('icon').style.display = card.iconUrl ? 'block' : 'none';
   Object.assign($('icon').style, { width: lockH + 'px', height: lockH + 'px' });
   $('name').textContent = card.name || '';
+  // a two-tone title that already says the name: the lockup keeps only the icon
+  $('name').style.display = card.name && /\*\*/.test(card.title) && card.title.toLowerCase().includes(card.name.toLowerCase()) ? 'none' : '';
   Object.assign($('name').style, { fontSize: nameSize + 'px', marginLeft: card.iconUrl ? lockH * 0.26 + 'px' : 0 });
   const parts = card.title.split('**');
   $('title').replaceChildren(...parts.map((t, i) => i % 2 ? el('b', { textContent: t }) : t));
@@ -200,14 +225,16 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
   let colX, colW, align;
   if (kind === 'x') { colX = X_TEXT; colW = 430; align = 'left'; }
   else if (side) { colX = M; colW = 490; align = 'left'; }
+  else if (detail) { colX = 64; colW = 440; align = 'left'; }
+  else if (win) { colX = 0; colW = W - 240; align = 'left'; }
   else { colX = M + 40; colW = W - 2 * (M + 40); align = 'center'; }
   Object.assign(copy.style, { left: colX + 'px', width: colW + 'px', textAlign: align });
   $('sub').style.fontSize = S.sub + 'px';
   // Fit the title. A link card takes the largest size up to S.title that fits the allowed lines, and never goes below
   // the size whose cap height is card.minCap. The other kinds keep one fixed size and only fail.
-  const maxLines = S.lines[side ? 'side' : 'below'], minSize = Math.ceil(card.minCap / (capOf(100) / 100));
+  const maxLines = S.lines[side ? 'side' : detail ? 'detail' : win ? 'window' : poster ? 'poster' : 'below'] ?? S.lines.below, minSize = Math.ceil(card.minCap / (capOf(100) / 100));
   const measureTitle = () => { const t = $('title'); const l = Math.round(t.getBoundingClientRect().height / (parseFloat(t.style.fontSize) * 1.06)); return { l, ok: l <= maxLines && t.scrollWidth <= t.clientWidth + 1 }; };
-  let size = S.title, lines, fits;
+  let size = poster ? 64 : win ? 58 : S.title, lines, fits;   // a poster keeps the title to one line so the window gets the room
   if (kind === 'link') {
     for (; size >= minSize; size -= 2) { $('title').style.fontSize = size + 'px'; ({ l: lines, ok: fits } = measureTitle()); if (fits) break; }
     if (!fits) { size = minSize; $('title').style.fontSize = size + 'px'; ({ l: lines, ok: fits } = measureTitle()); }
@@ -226,6 +253,18 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
     Object.assign(lock.style, { left: (W - lockW()) / 2 + 'px', top: '34px' }); copy.style.top = '96px';
   } else if (side) {
     Object.assign(lock.style, { left: M + 'px', top: M + 'px' }); copy.style.top = M + lockH + 52 + 'px';
+  } else if (detail) {
+    Object.assign(lock.style, { left: colX + 'px', top: '56px' }); copy.style.top = 56 + lockH + 26 + 'px';
+  } else if (poster) {
+    Object.assign(lock.style, { left: (W - lockW()) / 2 + 'px', top: '40px' }); copy.style.top = 40 + lockH + 14 + 'px';
+  } else if (win) {
+    // one row: icon, then the title, inside a white pill centred at the top
+    $('name').style.display = 'none'; $('title').style.whiteSpace = 'nowrap'; copy.style.width = 'auto';
+    const tw = $('title').getBoundingClientRect().width, rowW = lockH * 0.72 + 18 + tw, x0 = (W - rowW) / 2, top = 30, ph = Math.max(lockH * 0.72, kb().height) + 20;
+    Object.assign($('icon').style, { width: lockH * 0.72 + 'px', height: lockH * 0.72 + 'px' });
+    Object.assign(lock.style, { left: x0 + 'px', top: top + (ph - lockH * 0.72) / 2 + 'px' });
+    Object.assign(copy.style, { left: x0 + lockH * 0.72 + 18 + 'px', top: top + (ph - kb().height) / 2 + 'px' });
+    Object.assign($('pill').style, { left: x0 - 14 + 'px', top: top + 'px', width: rowW + 14 + 30 + 'px', height: ph + 'px' });
   } else {
     Object.assign(lock.style, { left: (W - lockW()) / 2 + 'px', top: '52px' }); copy.style.top = 52 + lockH + 22 + 'px';
   }
@@ -248,13 +287,24 @@ window.setCard = async ({ kind, brand = {}, card, wallpaper }) => {
     let w = Math.min(card.width ? card.width * W : maxW, maxW), h = w / it.aspect;
     if (h > maxH) { h = maxH; w = h * it.aspect; }
     paint(it, X_PIC + (maxW - w) / 2, (X_SAFE.y0 + X_SAFE.y1) / 2 - h / 2, w, h);
+  } else if (detail) {
+    // the whole window off to the right, bleeding; the zoom card (the second capture: the same file, cropped) under the title
+    const [full, zoom] = items;
+    paint(full, 548, 56, 880, 880 / full.aspect);
+    if (zoom) {
+      const top = Math.max(kb().bottom + 36, 330); let w = 600, h = w / zoom.aspect;
+      if (top + h > H - 40) { h = H - 40 - top; w = h * zoom.aspect; }
+      paint(zoom, colX, top, w, h);
+    }
+  } else if (win) {
+    const it = items[0], w = W - 80; paint(it, 40, parseFloat($('pill').style.top) + parseFloat($('pill').style.height) + 26, w, w / it.aspect);
   } else if (side) {
     const it = items[0], x = 590, w = (card.width ? card.width * W : W - x + 80), h = w / it.aspect;
     paint(it, x, h > H * 0.75 ? H - h * 0.86 : (H - h) / 2 + 20, w, h);
   } else {
-    const bleed = layout === 'bleed', bottom = bleed ? Infinity : H - (kind === 'ph' ? 40 : 40);
+    const bleed = layout === 'bleed' || poster, bottom = bleed ? Infinity : H - (kind === 'ph' ? 40 : 40);
     const room = bottom - areaTop - (items.length - 1) * gap;
-    const want = card.width ?? (bleed ? 0.84 : layout === 'pair' ? 0.7 : 0.84), wantW = want * W;
+    const want = card.width ?? (poster ? 0.8 : bleed ? 0.84 : layout === 'pair' ? 0.7 : 0.84), wantW = want * W;
     let used = 0;
     for (const it of items) {
       let w = wantW, h = w / it.aspect;
