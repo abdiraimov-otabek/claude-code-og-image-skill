@@ -102,7 +102,7 @@ repo and write the file. Ask the user **only** for what you could not find, in o
 
 2. **Write the words.**
    - **Link title:** the app's one-liner or the page's own title, in the site's words: **9 words or fewer**, sentence
-     case, no full stop, no dash, no `!`. It is the only large text on the card, so shorter is bigger.
+     case, no full stop, no dash, no exclamation mark. It is the only large text on the card, so shorter is bigger.
    - **Pages:** if the repo has a site with several pages, run `node <skill-folder>/scripts/pages.mjs <site-folder>`. It
      prints each page's `<title>` and `<h1>`. Pick the pages worth a preview of their own (the guides, the pricing page, the
      biggest features); skip pages that name another company's product. Take the `<h1>` or the shorter of the two, drop
@@ -181,7 +181,7 @@ repo and write the file. Ask the user **only** for what you could not find, in o
    The guard fails: a size that is not exact, an **alpha channel**, a file over 5 MB, text contrast under **4.5:1** (there is
    no scrim; pick a paler wallpaper or darker ink), a title whose **cap height is under the minimum** (link 40 px, slide
    38 px, header 36 px, so it still reads in a 600 px wide preview) or that needs more lines than fit, over-long or dashed (a dash, " - " or "--") or
-   `!` copy, a capture enlarged over 1.15x or a wallpaper over 1.2x, UI coverage under the floor unless the capture spans 80% of the card width (measured on the capture's
+   exclamation-mark copy, a capture enlarged over 1.15x or a wallpaper over 1.2x, UI coverage under the floor unless the capture spans 80% of the card width (measured on the capture's
    content pixels, not its box, so blank black or white areas do not count), anything **outside the X safe area or inside the
    avatar zone**, and a **font fallback**: the first named family of `fonts.family` must be the font that drew the title
    (`"Inter, sans-serif"` with no file would draw SF Pro: FAIL). A stack that starts with `-apple-system` or `system-ui`

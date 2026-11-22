@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "og-images",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Link previews, a Product Hunt gallery and an X header for your app, made from its real UI and checked on the rendered files: exact sizes, no alpha, contrast, safe zones, no font fallback.",
   "author": { "name": "Otabek Abdiraimov", "url": "https://github.com/abdiraimov-otabek" },
   "homepage": "https://github.com/abdiraimov-otabek/claude-code-og-image-skill",
